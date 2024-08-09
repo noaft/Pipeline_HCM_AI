@@ -1,21 +1,21 @@
-
+app.py
 from flask import Flask, render_template, Response, request, send_file, jsonify
 import cv2
 import os
+from flask_ngrok import run_with_ngrok
+
 os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import numpy as np
 import pandas as pd
 import glob 
 import json 
-
+from pyngrok import ngrok
 from utils.query_processing import Translation
 from utils.faiss import Myfaiss
-
-# http://0.0.0.0:5001/home?index=0
-
-# app = Flask(__name__, template_folder='templates', static_folder='static')
-
+port_no = 5000
 app = Flask(__name__, template_folder='templates')
+ngrok.set_auth_token("2kNEciBlxkTx83F7sRcU7wpXu3h_7Scv5U74oEYe5uRTV757J")
+public_url =  ngrok.connect(port_no).public_url
 
 ####### CONFIG #########
 with open('image_path.json') as json_file:
@@ -23,7 +23,7 @@ with open('image_path.json') as json_file:
 
 DictImagePath = {}
 for key, value in json_dict.items():
-   DictImagePath[int(key)] = value 
+    DictImagePath[int(key)] = value 
 
 LenDictPath = len(DictImagePath)
 bin_file='faiss_normal_ViT.bin'
@@ -36,14 +36,9 @@ def thumbnailimg():
     print("load_iddoc")
 
     pagefile = []
-    index = int(request.args.get('index'))
-    if index == None:
-        index = 0
+    index = request.args.get('index', default=0, type=int)
 
     imgperindex = 100
-    
-    # imgpath = request.args.get('imgpath') + "/"
-    pagefile = []
 
     page_filelist = []
     list_idx = []
@@ -109,9 +104,7 @@ def text_search():
 
 @app.route('/get_img')
 def get_img():
-    # print("get_img")
     fpath = request.args.get('fpath')
-    # fpath = fpath
     list_image_name = fpath.split("/")
     image_name = "/".join(list_image_name[-2:])
 
@@ -123,16 +116,15 @@ def get_img():
 
     img = cv2.resize(img, (1280,720))
 
-    # print(img.shape)
     img = cv2.putText(img, image_name, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 
-                   3, (255, 0, 0), 4, cv2.LINE_AA)
+                3, (255, 0, 0), 4, cv2.LINE_AA)
 
     ret, jpeg = cv2.imencode('.jpg', img)
     return  Response((b'--frame\r\n'
-                     b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n'),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
+                  b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n\r\n'),
+                 mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0", port=5001)
+    print("pls click: {}".format(public_url))
+    # Bind to 0.0.0.0 to make the Flask app accessible from outside the Colab environment
+    app.run(port=port_no)
